@@ -4,26 +4,26 @@ import { supabase } from '../../lib/supabase'
 import { Button, Input, Text } from '@rneui/themed'
 import { Link } from 'expo-router'
 import GoogleSignInButton from './GoogleButton'
+import AppleSignInButton from './AppleButton'
 
 const StyledText = forwardRef((props: any, ref) => (
   <RNText {...props} ref={ref} />
 ))
 
 export default function Auth() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
   const [loading, setLoading] = useState(false)
 
 
 
-  async function signInWithEmail() {
+  async function signInWithPhone() {
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email,
-      password: password,
+    const { error } = await supabase.auth.signInWithOtp({
+      phone: phoneNumber,
     })
 
     if (error) Alert.alert(error.message)
+    else Alert.alert('Success', 'Check your phone for the login code!')
     setLoading(false)
   }
 
@@ -32,25 +32,15 @@ export default function Auth() {
     <View style={styles.container}>
       <View style={[styles.verticallySpaced, styles.pb20]}>
         <GoogleSignInButton />
+        <AppleSignInButton />
       </View>
       <View style={styles.verticallySpaced}>
         <Input
-          placeholder="Email address"
-          onChangeText={(text) => setEmail(text)}
-          value={email}
+          placeholder="Phone number (e.g. +1234567890)"
+          onChangeText={(text) => setPhoneNumber(text)}
+          value={phoneNumber}
           autoCapitalize={'none'}
-          inputStyle={styles.input}
-          inputContainerStyle={styles.inputContainer}
-          containerStyle={styles.fieldContainer}
-        />
-      </View>
-      <View style={styles.verticallySpaced}>
-        <Input
-          placeholder="Password"
-          onChangeText={(text) => setPassword(text)}
-          value={password}
-          secureTextEntry={true}
-          autoCapitalize={'none'}
+          keyboardType="phone-pad"
           inputStyle={styles.input}
           inputContainerStyle={styles.inputContainer}
           containerStyle={styles.fieldContainer}
@@ -58,9 +48,9 @@ export default function Auth() {
       </View>
       <View style={[styles.verticallySpaced, styles.mt20]}>
         <Button
-          title="Sign in"
+          title="Sign in with Phone"
           disabled={loading}
-          onPress={() => signInWithEmail()}
+          onPress={() => signInWithPhone()}
           buttonStyle={styles.button}
         />
       </View>

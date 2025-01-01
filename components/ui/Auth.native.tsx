@@ -4,30 +4,24 @@ import { supabase } from '../../lib/supabase'
 import { Button, Input, Text } from '@rneui/themed'
 import { Link } from 'expo-router'
 import GoogleSignInButton from './GoogleButton'
+import AppleSignInButton from './AppleButton'
 
 const StyledText = forwardRef((props: any, ref) => (
   <RNText {...props} ref={ref} />
 ))
 
 export default function SignUpNative() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function signUpWithEmail() {
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match')
-      return
-    }
+  async function signUpWithPhone() {
     setLoading(true)
-    const { error } = await supabase.auth.signUp({
-      email: email,
-      password: password,
+    const { error } = await supabase.auth.signInWithOtp({
+      phone: phoneNumber,
     })
 
     if (error) Alert.alert(error.message)
-    else Alert.alert('Success', 'Check your email for the confirmation link!')
+    else Alert.alert('Success', 'Check your phone for the verification code!')
     setLoading(false)
   }
 
@@ -35,37 +29,15 @@ export default function SignUpNative() {
     <View style={styles.container}>
       <View style={[styles.verticallySpaced, styles.pb20]}>
         <GoogleSignInButton />
+        <AppleSignInButton />
       </View>
       <View style={styles.verticallySpaced}>
         <Input
-          placeholder="Email address"
-          onChangeText={(text) => setEmail(text)}
-          value={email}
+          placeholder="Phone number (e.g. +1234567890)"
+          onChangeText={(text) => setPhoneNumber(text)}
+          value={phoneNumber}
           autoCapitalize={'none'}
-          inputStyle={styles.input}
-          inputContainerStyle={styles.inputContainer}
-          containerStyle={styles.fieldContainer}
-        />
-      </View>
-      <View style={styles.verticallySpaced}>
-        <Input
-          placeholder="Password"
-          onChangeText={(text) => setPassword(text)}
-          value={password}
-          secureTextEntry={true}
-          autoCapitalize={'none'}
-          inputStyle={styles.input}
-          inputContainerStyle={styles.inputContainer}
-          containerStyle={styles.fieldContainer}
-        />
-      </View>
-      <View style={styles.verticallySpaced}>
-        <Input
-          placeholder="Confirm Password"
-          onChangeText={(text) => setConfirmPassword(text)}
-          value={confirmPassword}
-          secureTextEntry={true}
-          autoCapitalize={'none'}
+          keyboardType="phone-pad"
           inputStyle={styles.input}
           inputContainerStyle={styles.inputContainer}
           containerStyle={styles.fieldContainer}
@@ -73,9 +45,9 @@ export default function SignUpNative() {
       </View>
       <View style={[styles.verticallySpaced, styles.mt20]}>
         <Button
-          title="Sign Up"
+          title="Sign Up with Phone"
           disabled={loading}
-          onPress={() => signUpWithEmail()}
+          onPress={() => signUpWithPhone()}
           buttonStyle={styles.button}
         />
       </View>
