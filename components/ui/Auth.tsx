@@ -4,7 +4,6 @@ import { supabase } from '../../lib/supabase'
 import { Button, Input, Text } from '@rneui/themed'
 import { Link } from 'expo-router'
 import GoogleSignInButton from './GoogleButton'
-import AppleSignInButton from './AppleButton'
 
 const StyledText = forwardRef((props: any, ref) => (
   <RNText {...props} ref={ref} />
@@ -14,25 +13,42 @@ export default function Auth() {
   const [phoneNumber, setPhoneNumber] = useState('')
   const [loading, setLoading] = useState(false)
 
-
-
-  async function signInWithPhone() {
-    setLoading(true)
-    const { error } = await supabase.auth.signInWithOtp({
-      phone: phoneNumber,
-    })
-
-    if (error) Alert.alert(error.message)
-    else Alert.alert('Success', 'Check your phone for the login code!')
-    setLoading(false)
+  const formatPhoneNumber = (number: string) => {
+    // Remove any non-numeric characters except +
+    const cleaned = number.replace(/[^\d+]/g, '')
+    // Ensure it starts with +
+    return cleaned.startsWith('+') ? cleaned : '+' + cleaned
   }
 
+  async function signInWithPhone() {
+    try {
+      setLoading(true)
+      const formattedPhone = formatPhoneNumber(phoneNumber)
+      console.log('Attempting sign in with:', formattedPhone)
+      
+      const { data, error } = await supabase.auth.signInWithOtp({
+        phone: formattedPhone,
+      })
+
+      if (error) {
+        console.error('OTP Error:', error)
+        Alert.alert('Error', error.message)
+      } else {
+        Alert.alert('Success', 'Check your phone for the login code!')
+        console.log('OTP sent successfully:', data)
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err)
+      Alert.alert('Error', 'An unexpected error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <View style={styles.container}>
       <View style={[styles.verticallySpaced, styles.pb20]}>
         <GoogleSignInButton />
-        <AppleSignInButton />
       </View>
       <View style={styles.divider} />
       <View style={styles.verticallySpaced}>
@@ -49,10 +65,12 @@ export default function Auth() {
       </View>
       <View style={[styles.verticallySpaced]}>
         <Button
-          title="Sign in with Phone"
-          disabled={loading}
-          onPress={() => signInWithPhone()}
+          title={loading ? 'Loading...' : 'Sign in with phone'}
+          disabled={loading || !phoneNumber.trim()}
+          onPress={signInWithPhone}
           buttonStyle={styles.button}
+          titleStyle={styles.buttonText}
+          containerStyle={styles.buttonContainer}
         />
       </View>
       <View style={styles.footer}>
@@ -70,57 +88,43 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   verticallySpaced: {
-    paddingTop: 2,
-    paddingBottom: 2,
+    paddingTop: 4,
+    paddingBottom: 4,
     alignSelf: 'stretch',
-  },
-  mt20: {
-    marginTop: 20,
   },
   pb20: {
     paddingBottom: 20,
   },
-  fieldContainer: {
-    paddingHorizontal: 0,
-  },
-  inputContainer: {
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    borderRadius: 17,
-    gap: 23,
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-    height: 56,
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 20,
   },
   input: {
     color: '#1F2937',
     fontSize: 16,
-    height: 48,
+  },
+  inputContainer: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#F9FAFB',
+  },
+  fieldContainer: {
+    paddingHorizontal: 0,
   },
   button: {
-    backgroundColor: '#a742f5',
-    borderRadius: 17,
-    padding: 15,
+    backgroundColor: '#7C3AED',
+    borderRadius: 8,
+    padding: 12,
   },
-  buttonGoogle: {
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 17,
-    padding: 15,
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
-  buttonGoogleText: {
-    color: '#6b6a6a',
-    marginLeft: 10,
-  },
-  buttonGoogleContainer: {
-    borderWidth: 1,
-    borderColor: '#a742f5',
-    borderRadius: 19,
-    padding: 1,
-  },
-  googleIcon: {
-    marginRight: 10,
+  buttonContainer: {
+    width: '100%',
   },
   footer: {
     flexDirection: 'row',
@@ -133,11 +137,5 @@ const styles = StyleSheet.create({
   link: {
     color: '#7C3AED',
     fontWeight: '600',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginTop: 10,
-    marginBottom: 50,
   },
 })

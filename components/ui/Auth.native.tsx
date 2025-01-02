@@ -4,7 +4,6 @@ import { supabase } from '../../lib/supabase'
 import { Button, Input, Text } from '@rneui/themed'
 import { Link } from 'expo-router'
 import GoogleSignInButton from './GoogleButton'
-import AppleSignInButton from './AppleButton'
 
 const StyledText = forwardRef((props: any, ref) => (
   <RNText {...props} ref={ref} />
@@ -29,7 +28,6 @@ export default function SignUpNative() {
     <View style={styles.container}>
       <View style={[styles.verticallySpaced, styles.pb20]}>
         <GoogleSignInButton />
-        <AppleSignInButton />
       </View>
       <View style={styles.divider} />
       <View style={styles.verticallySpaced}>

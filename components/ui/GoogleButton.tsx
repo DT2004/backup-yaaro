@@ -10,27 +10,33 @@ WebBrowser.maybeCompleteAuthSession()
 
 export default function GoogleSignInButton() {
   const [request, response, promptAsync] = Google.useAuthRequest({
-    iosClientId: 'com.googleusercontent.apps.1086597401170-99t70np22f8q7dkuq4bj0huqo4h34hjg',
-    webClientId: '1086597401170-99t70np22f8q7dkuq4bj0huqo4h34hjg.apps.googleusercontent.com',
-    androidClientId: '1086597401170-99t70np22f8q7dkuq4bj0huqo4h34hjg.apps.googleusercontent.com'
+    clientId: '974725374753-5df7619sodu6gb4e0tnh23nrcsa0knqi.apps.googleusercontent.com',
+    iosClientId: '974725374753-5df7619sodu6gb4e0tnh23nrcsa0knqi.apps.googleusercontent.com',
+    scopes: ['openid', 'profile', 'email'],
+    redirectUri: 'com.yaaro.yarro://'
   })
 
   React.useEffect(() => {
     if (response?.type === 'success') {
-      const { id_token } = response.params
-      signInWithGoogle(id_token)
+      const { access_token } = response.params
+      signInWithGoogle(access_token)
     }
   }, [response])
 
-  async function signInWithGoogle(idToken: string) {
+  async function signInWithGoogle(token: string) {
     try {
-      const { data, error } = await supabase.auth.signInWithIdToken({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        token: idToken,
+        options: {
+          queryParams: {
+            access_token: token,
+          },
+        },
       })
-      console.log(error, data)
+      if (error) console.error('Sign in error:', error)
+      else console.log('Sign in success:', data)
     } catch (error) {
-      console.error(error)
+      console.error('Sign in error:', error)
     }
   }
 

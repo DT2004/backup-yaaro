@@ -8,7 +8,7 @@ import { supabase } from '../../lib/supabase';
 export default function LoginScreen() {
   const router = useRouter();
 
-  // Listen for auth changes
+  // Listen for auth changesss
   React.useEffect(() => {
     supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
