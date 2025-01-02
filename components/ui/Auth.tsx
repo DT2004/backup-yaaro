@@ -34,6 +34,7 @@ export default function Auth() {
         <GoogleSignInButton />
         <AppleSignInButton />
       </View>
+      <View style={styles.divider} />
       <View style={styles.verticallySpaced}>
         <Input
           placeholder="Phone number (e.g. +1234567890)"
@@ -46,7 +47,7 @@ export default function Auth() {
           containerStyle={styles.fieldContainer}
         />
       </View>
-      <View style={[styles.verticallySpaced, styles.mt20]}>
+      <View style={[styles.verticallySpaced]}>
         <Button
           title="Sign in with Phone"
           disabled={loading}
@@ -69,8 +70,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   verticallySpaced: {
-    paddingTop: 4,
-    paddingBottom: 4,
+    paddingTop: 2,
+    paddingBottom: 2,
     alignSelf: 'stretch',
   },
   mt20: {
@@ -132,5 +133,11 @@ const styles = StyleSheet.create({
   link: {
     color: '#7C3AED',
     fontWeight: '600',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginTop: 10,
+    marginBottom: 50,
   },
 })
