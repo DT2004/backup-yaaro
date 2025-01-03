@@ -24,7 +24,33 @@ function useProtectedRoute(session: Session | null, isReady: boolean) {
     if (!session && !inAuthGroup) {
       router.replace('/(auth)/login');
     } else if (session && inAuthGroup) {
-      router.replace('/(tabs)');
+      async function fetchUserData() {
+        const { data, error } = await supabase.auth.getUser();
+        if (error) {
+          console.error('Error fetching user data:', error);
+          return;
+        }
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('quiz_complete')
+          .eq('id', data.user.id)
+          .single();
+        if (profileError) {
+          // If no profile exists, redirect to onboarding
+          if (profileError.code === 'PGRST116') {
+            router.replace('/(auth)/onboarding');
+            return;
+          }
+          console.error('Error fetching profile data:', profileError);
+          return;
+        }
+        if (profileData?.quiz_complete) {
+          router.replace('/(tabs)');
+        } else {
+          router.replace('/(auth)/onboarding');
+        }
+      }
+      fetchUserData();
     }
   }, [session, segments, isReady]);
 }

@@ -12,7 +12,7 @@ export default function SignupScreen() {
   React.useEffect(() => {
     supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
-        router.replace('/(tabs)');
+        router.replace('/onboarding');
       }
     });
   }, [router]);
