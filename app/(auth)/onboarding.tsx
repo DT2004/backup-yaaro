@@ -221,6 +221,16 @@ export default function Onboarding() {
             throw new Error('Failed to save some answers');
           }
 
+          // Update quiz_complete in profiles
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({ quiz_complete: true })
+            .eq('id', user.id);
+
+          if (profileError) {
+            throw new Error('Failed to update profile');
+          }
+
           setShowCelebration(true);
           
           // Wait for animations to finish before redirecting
