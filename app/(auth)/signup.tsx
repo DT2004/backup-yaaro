@@ -26,7 +26,7 @@ export default function SignupScreen() {
         <View style={styles.innerContainer}>
           <View style={styles.headerContainer}>
             <Text style={styles.title}>Create an Account</Text>
-            <Text style={styles.subtitle}>Join Yarro today</Text>
+            <Text style={styles.subtitle}>Join Yaaro today</Text>
           </View>
           <View style={styles.authContainer}>
             <AuthNative />

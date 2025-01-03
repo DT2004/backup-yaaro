@@ -24,7 +24,7 @@ export default function LoginScreen() {
     >
       <View style={styles.contentContainer}>
         <View style={styles.headerContainer}>
-          <Text style={styles.title}>Welcome to Yarro</Text>
+          <Text style={styles.title}>Welcome to Yaaro</Text>
           <Text style={styles.subtitle}>Find your next adventure</Text>
         </View>
         <View style={styles.authContainer}>

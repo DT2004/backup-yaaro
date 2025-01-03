@@ -5,12 +5,12 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "com.yaaro.yarro",
+    "scheme": "com.yaaro.yaaro",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yaaro.yarro",
+      "bundleIdentifier": "com.yaaro.yaaro",
       "config": {
         "googleSignIn": {
           "reservedClientId": "974725374753-5df7619sodu6gb4e0tnh23nrcsa0knqi.apps.googleusercontent.com"
@@ -22,7 +22,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.yaaro.yarro"
+      "package": "com.yaaro.yaaro"
     },
     "web": {
       "bundler": "metro",
