@@ -36,9 +36,12 @@ function useProtectedRoute(session: Session | null, isReady: boolean) {
           .eq('id', data.user.id)
           .single();
         if (profileError) {
-          // If no profile exists, redirect to onboarding
+          // If no profile exists, redirect to onboarding only if not on specific auth routes
           if (profileError.code === 'PGRST116') {
-            router.replace('/(auth)/onboarding');
+            const currentRoute = segments.join('/');
+            if (!['(auth)/signup', '(auth)/login', '(auth)/onboarding'].includes(currentRoute)) {
+              router.replace('/(auth)/onboarding');
+            }
             return;
           }
           console.error('Error fetching profile data:', profileError);
@@ -47,7 +50,10 @@ function useProtectedRoute(session: Session | null, isReady: boolean) {
         if (profileData?.quiz_complete) {
           router.replace('/(tabs)');
         } else {
-          router.replace('/(auth)/onboarding');
+          const currentRoute = segments.join('/');
+          if (!['(auth)/signup', '(auth)/login', '(auth)/onboarding'].includes(currentRoute)) {
+            router.replace('/(auth)/onboarding');
+          }
         }
       }
       fetchUserData();

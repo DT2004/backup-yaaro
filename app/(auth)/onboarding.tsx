@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
-import Animated, { FadeInRight, FadeOutLeft } from 'react-native-reanimated';
+import Animated, { FadeInRight, FadeOutLeft, FadeIn, FadeOut, ZoomIn } from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
+import ConfettiCannon from 'react-native-confetti-cannon';
 
 interface Question {
   id: number;
@@ -35,6 +36,7 @@ const questions: Question[] = [
     question: "Pick your conversation starters",
     type: "multi-select",
     maxSelect: 2,
+    note: "Select up to 2 options",
     options: [
       "IPL debates",
       "Startup culture",
@@ -49,8 +51,37 @@ const questions: Question[] = [
   },
   {
     id: 3,
+    question: "Your comfort food is...",
+    type: "multi-select",
+    maxSelect: 2,
+    note: "Select up to 2 options",
+    options: [
+      "Street side vada pav",
+      "Home style thali",
+      "Biryani anytime",
+      "Momos & more",
+      "North/South India",
+      "Italian",
+      "Asian all the way"
+    ]
+  },
+  {
+    id: 4,
+    question: "Your communication comfort zone?",
+    type: "select",
+    note: "We will use this to find people who speak your language",
+    options: [
+      "English",
+      "Casual Hindi",
+      "Mix of everything",
+      "Regional Language Pro"
+    ]
+  },
+  {
+    id: 5,
     question: "Current Work Life?",
     type: "select",
+    note: "Don't worry, this won't be displayed on your profile",
     options: [
       "Tech hustler",
       "Finance/Business",
@@ -62,8 +93,9 @@ const questions: Question[] = [
     ]
   },
   {
-    id: 4,
+    id: 6,
     question: "What's your vibe?",
+    note: "Don't worry, this won't be displayed on your profile",
     type: "multi-select",
     maxSelect: 2,
     options: [
@@ -79,8 +111,9 @@ const questions: Question[] = [
     ]
   },
   {
-    id: 5,
+    id: 7,
     question: "Your perfect weekend looks like...",
+    note: "Don't worry, this won't be displayed on your profile",
     type: "multi-select",
     maxSelect: 2,
     options: [
@@ -94,7 +127,7 @@ const questions: Question[] = [
     ]
   },
   {
-    id: 6,
+    id: 8,
     question: "Tell us what you love",
     type: "text",
     placeholder: "I love...",
@@ -104,11 +137,28 @@ const questions: Question[] = [
   }
 ];
 
+const { width, height } = Dimensions.get('window');
+
 export default function Onboarding() {
   const router = useRouter();
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Answers>({});
   const [loading, setLoading] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const confettiRef = useRef<ConfettiCannon>(null);
+  const [mounted, setMounted] = useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+      </View>
+    );
+  }
 
   const handleSelect = (option: string) => {
     const question = questions[currentQuestion];
@@ -147,27 +197,48 @@ export default function Onboarding() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          const { error } = await supabase
-            .from('profiles')
-            .upsert({
-              id: user.id,
-              age_group: answers["1"],
-              conversation_starters: answers["2"],
-              work_life: answers["3"],
-              vibe: answers["4"],
-              weekend_preferences: answers["5"],
-              loves: answers["6"],
-              quiz_complete: true
-            });
+          // Save each answer to onboarding_answers table
+          const answerPromises = questions.map(question => {
+            const answer = answers[question.id];
+            if (answer !== undefined) {
+              return supabase
+                .from('onboarding_answers')
+                .insert({
+                  user_id: user.id,
+                  question_id: question.id,
+                  question_type: question.type,
+                  question_text: question.question,
+                  answer: JSON.stringify(answer)
+                });
+            }
+            return Promise.resolve();
+          });
 
-          if (error) throw error;
-          router.replace('/(tabs)');
+          const results = await Promise.all(answerPromises);
+          const errors = results.filter(result => result && result.error);
+          
+          if (errors.length > 0) {
+            throw new Error('Failed to save some answers');
+          }
+
+          setShowCelebration(true);
+          
+          // Wait for animations to finish before redirecting
+          setTimeout(() => {
+            router.replace('/(tabs)');
+          }, 3000);
         }
       } catch (error) {
-        console.error('Error saving profile:', error);
+        console.error('Error saving answers:', error);
       } finally {
         setLoading(false);
       }
+    }
+  };
+
+  const handleBack = () => {
+    if (currentQuestion > 0) {
+      setCurrentQuestion(currentQuestion - 1);
     }
   };
 
@@ -176,6 +247,53 @@ export default function Onboarding() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
+      {showCelebration && (
+        <Animated.View 
+          style={[StyleSheet.absoluteFill, styles.celebrationContainer]} 
+          entering={FadeIn}
+          exiting={FadeOut}
+        >
+          <ConfettiCannon
+            ref={confettiRef}
+            count={100}
+            origin={{ x: -10, y: 0 }}
+            autoStart={true}
+            fadeOut={true}
+            fallSpeed={3000}
+            explosionSpeed={350}
+            colors={['#8B5CF6', '#EC4899', '#3B82F6', '#10B981']}
+          />
+          <ConfettiCannon
+            count={100}
+            origin={{ x: width + 10, y: 0 }}
+            autoStart={true}
+            fadeOut={true}
+            fallSpeed={3000}
+            explosionSpeed={350}
+            colors={['#8B5CF6', '#EC4899', '#3B82F6', '#10B981']}
+          />
+          <View style={styles.welcomeContainer}>
+            <Animated.View 
+              entering={ZoomIn} 
+              style={styles.checkCircle}
+            >
+              <Text style={styles.checkmark}>✓</Text>
+            </Animated.View>
+            <Animated.Text 
+              style={styles.welcomeText}
+              entering={FadeIn.delay(500)}
+            >
+              Welcome to Yaaro!
+            </Animated.Text>
+            <Animated.Text 
+              style={styles.subText}
+              entering={FadeIn.delay(800)}
+            >
+              Let's meet some new people
+            </Animated.Text>
+          </View>
+        </Animated.View>
+      )}
       <View style={styles.progressContainer}>
         {questions.map((_, index) => (
           <View
@@ -192,13 +310,12 @@ export default function Onboarding() {
       </View>
       <ScrollView style={styles.scrollView}>
         <Animated.View 
-          entering={FadeInRight.duration(300)}
-          exiting={FadeOutLeft.duration(300)}
+          entering={mounted ? FadeInRight.duration(200).springify() : undefined}
+          exiting={FadeOutLeft.duration(200).springify()}
           key={currentQuestion}
           style={[styles.questionContainer, { position: 'relative' }]}
         >
           <Text style={styles.question}>{currentQ.question}</Text>
-          <Text style={styles.subtitle}>Dont worry, This wont appear on your profile</Text>
           {currentQ.note && (
             <Text style={styles.note}>{currentQ.note}</Text>
           )}
@@ -237,12 +354,20 @@ export default function Onboarding() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity 
-          style={styles.nextButton}
+      {currentQuestion > 0 && (
+          <TouchableOpacity
+            style={[styles.button, styles.backButton]}
+            onPress={handleBack}
+          >
+            <Text style={styles.buttonText}>Back</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={[styles.button, !answers[currentQ.id] && styles.buttonDisabled]}
           onPress={handleNext}
-          disabled={loading}
+          disabled={!answers[currentQ.id]}
         >
-          <Text style={styles.nextButtonText}>
+          <Text style={styles.buttonText}>
             {currentQuestion === questions.length - 1 ? 'Finish' : 'Next'}
           </Text>
         </TouchableOpacity>
@@ -278,10 +403,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   note: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#a3a3a3',
     marginBottom: 20,
-    fontStyle: 'italic',
   },
   optionsContainer: {
     marginTop: 20,
@@ -318,17 +442,23 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 20,
-    paddingBottom: 50,
     borderTopWidth: 1,
     borderTopColor: '#2d2d2d',
   },
-  nextButton: {
+  button: {
     backgroundColor: '#8B5CF6',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
+    marginBottom: 10,
   },
-  nextButtonText: {
+  backButton: {
+    backgroundColor: '#4B5563',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  buttonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
@@ -342,5 +472,42 @@ const styles = StyleSheet.create({
   progressBar: {
     height: 4,
     borderRadius: 2,
+  },
+  celebrationContainer: {
+    position: 'absolute',
+    zIndex: 1000,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  welcomeContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#8B5CF6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 40,
+    fontWeight: 'bold',
+  },
+  welcomeText: {
+    color: '#fff',
+    fontSize: 32,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  subText: {
+    color: '#a3a3a3',
+    fontSize: 18,
+    textAlign: 'center',
   },
 });
