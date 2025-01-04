@@ -282,14 +282,19 @@ export default function ProfileScreen() {
         </View>
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
-            <Avatar.Image
-              size={100}
-              source={profile.avatar_url ? { uri: profile.avatar_url } : require('@/assets/images/default-avatar.png')}
-              style={[
-                !profile.avatar_url && styles.defaultAvatar,
-                styles.avatarImage
-              ]}
-            />
+            {profile.avatar_url ? (
+              <Avatar.Image
+                size={100}
+                source={{ uri: profile.avatar_url }}
+                style={styles.avatarImage}
+              />
+            ) : (
+              <Avatar.Text
+                size={100}
+                label={profile.full_name ? profile.full_name[0].toUpperCase() : '?'}
+                style={styles.avatarImage}
+              />
+            )}
           </View>
           <View style={styles.nameContainer}>
             <ThemedText style={styles.name}>{profile.full_name || 'Anonymous'}</ThemedText>

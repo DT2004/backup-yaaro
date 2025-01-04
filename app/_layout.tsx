@@ -8,6 +8,7 @@ import 'react-native-reanimated';
 import { supabase } from '../lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -63,48 +64,46 @@ function useProtectedRoute(session: Session | null, isReady: boolean) {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const [loaded, error] = useFonts({
+    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+  });
   const [session, setSession] = useState<Session | null>(null);
   const [isReady, setIsReady] = useState(false);
 
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setIsReady(true);
+    });
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+  }, []);
 
   useProtectedRoute(session, isReady);
 
+  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
-    async function prepare() {
-      try {
-        if (!loaded) return;
+    if (error) throw error;
+  }, [error]);
 
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
-        setIsReady(true);
-        await SplashScreen.hideAsync();
-      } catch (e) {
-        console.warn(e);
-      }
+  useEffect(() => {
+    if (loaded && isReady) {
+      SplashScreen.hideAsync();
     }
+  }, [loaded, isReady]);
 
-    prepare();
-  }, [loaded]);
-
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  if (!isReady || !loaded) {
-    return <Slot />;
+  if (!loaded || !isReady) {
+    return null;
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Slot />
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        <Slot />
+      </ThemeProvider>
+    </AuthProvider>
   );
 }

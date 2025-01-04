@@ -39,3 +39,36 @@ export type Profile = {
   email?: string; // text
   quiz_complete?: boolean; // boolean
 };
+
+export interface GroupMessage {
+  id: string; // UUID
+  group_id: string; // UUID referencing group_chats(id)
+  sender_id: string; // UUID referencing profiles(id)
+  message: string; // Text of the message
+  created_at: string; // Timestamp with time zone
+}
+// types.ts
+
+export interface DirectMessage {
+  id: string; // UUID
+  sender_id: string; // UUID referencing profiles(id)
+  receiver_id: string; // UUID referencing profiles(id)
+  message: string; // Text of the message
+  created_at: string; // Timestamp with time zone
+}
+
+// types.ts
+
+
+export interface GroupChat {
+  id: string; // UUID
+  title: string; // Title of the group chat
+  created_at: string; // Timestamp with time zone
+}
+
+export interface DirectMessage {
+  id: string; // UUID
+  user1_id: string; // UUID referencing profiles(id)
+  user2_id: string; // UUID referencing profiles(id)
+  created_at: string; // Timestamp with time zone
+}
