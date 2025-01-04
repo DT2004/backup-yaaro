@@ -38,7 +38,8 @@ interface GroupInfo {
 const MESSAGES_PER_PAGE = 20;
 
 export default function GroupChatScreen() {
-  const { id, view } = useLocalSearchParams();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const chatId = Array.isArray(id) ? id[0] : id;
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -73,13 +74,13 @@ export default function GroupChatScreen() {
   }), [colorScheme, theme]);
 
   const fetchMessages = async (fromDate?: string) => {
-    if (!user || !id) return;
+    if (!user || !chatId) return;
 
     try {
       let query = supabase
         .from('group_messages')
         .select('*, sender:sender_id(full_name, avatar_url)')
-        .eq('group_id', id)
+        .eq('group_id', chatId)
         .order('created_at', { ascending: false })
         .limit(MESSAGES_PER_PAGE);
 
@@ -117,10 +118,10 @@ export default function GroupChatScreen() {
     setRefreshing(true);
     await fetchMessages();
     setRefreshing(false);
-  }, [id, user]);
+  }, [chatId, user]);
 
   useEffect(() => {
-    if (!user || !id) return;
+    if (!user || !chatId) return;
 
     const fetchGroupData = async () => {
       setLoading(true);
@@ -139,7 +140,7 @@ export default function GroupChatScreen() {
               )
             )
           `)
-          .eq('id', id)
+          .eq('id', chatId)
           .single();
 
         if (groupError) throw groupError;
@@ -160,14 +161,14 @@ export default function GroupChatScreen() {
 
     // Set up real-time subscription for new messages
     const subscription = supabase
-      .channel(`group_chat:${id}`)
+      .channel(`group_chat:${chatId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'group_messages',
-          filter: `group_id=eq.${id}`,
+          filter: `group_id=eq.${chatId}`,
         },
         async (payload) => {
           const { data: newMessage, error } = await supabase
@@ -186,10 +187,10 @@ export default function GroupChatScreen() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [id, user]);
+  }, [chatId, user]);
 
   const handleSend = async () => {
-    if (!newMessage.trim() || !user || !id) return;
+    if (!newMessage.trim() || !user || !chatId) return;
 
     const messageToSend = newMessage.trim();
     setNewMessage('');
@@ -199,7 +200,7 @@ export default function GroupChatScreen() {
         .from('group_messages')
         .insert([
           {
-            group_id: id,
+            group_id: chatId,
             sender_id: user.id,
             message: messageToSend,
           }
@@ -211,7 +212,7 @@ export default function GroupChatScreen() {
       const { data: latestMessages, error: fetchError } = await supabase
         .from('group_messages')
         .select('*, sender:sender_id(full_name, avatar_url)')
-        .eq('group_id', id)
+        .eq('group_id', chatId)
         .order('created_at', { ascending: false })
         .limit(MESSAGES_PER_PAGE);
 
@@ -267,8 +268,8 @@ export default function GroupChatScreen() {
             ) : (
               <Avatar.Text
                 size={32}
-                label={item.sender.full_name.substring(0, 2)}
-                style={styles.messageAvatar}
+                label={item.sender?.full_name?.charAt(0).toUpperCase() || '?'}
+                style={[styles.messageAvatar, { backgroundColor: '#007AFF' }]}
               />
             )
           ) : (
@@ -309,60 +310,16 @@ export default function GroupChatScreen() {
     );
   };
 
-  if (view === 'info') {
-    return (
-      <View style={styles.container}>
-        <Surface style={styles.header}>
-          <View style={styles.headerContent}>
-            <IconButton
-              icon="arrow-left"
-              size={24}
-              onPress={() => router.push({
-                pathname: '/chat/gc/[id]',
-                params: { id }
-              })}
-              style={styles.backButton}
-            />
-            <ThemedText style={styles.headerName}>Group Info</ThemedText>
-          </View>
-        </Surface>
-        <View style={styles.infoContainer}>
-          {groupInfo ? (
-            <>
-              <View style={styles.groupInfoHeader}>
-                <Avatar.Image 
-                  size={80} 
-                  source={groupInfo.avatar_url ? { uri: groupInfo.avatar_url } : { uri: '' }}
-                  style={{ backgroundColor: 'white' }}
-                />
-                <ThemedText style={styles.groupName}>{groupInfo.name}</ThemedText>
-                <ThemedText style={styles.groupDescription}>{groupInfo.description}</ThemedText>
-              </View>
-              <View style={styles.membersList}>
-                <ThemedText style={styles.membersHeader}>Members ({groupInfo.members?.length || 0})</ThemedText>
-                <FlatList
-                  data={groupInfo.members}
-                  keyExtractor={(item) => item.user_id}
-                  renderItem={({ item }) => (
-                    <View style={styles.memberItem}>
-                      <Avatar.Image 
-                        size={40} 
-                        source={item.profile.avatar_url ? { uri: item.profile.avatar_url } : { uri: '' }}
-                        style={{ backgroundColor: 'white' }}
-                      />
-                      <ThemedText style={styles.memberName}>{item.profile.full_name}</ThemedText>
-                    </View>
-                  )}
-                />
-              </View>
-            </>
-          ) : (
-            <ActivityIndicator size="large" />
-          )}
-        </View>
-      </View>
-    );
-  }
+  const handleBack = () => {
+    router.push('/(tabs)/chats');
+  };
+
+  const handleInfo = () => {
+    router.push({
+      pathname: '/chat/gc/[id]',
+      params: { id: chatId, view: 'info' }
+    });
+  };
 
   if (loading) {
     return (
@@ -378,38 +335,26 @@ export default function GroupChatScreen() {
         <Surface style={[styles.header, { backgroundColor: theme.background }]}>
           <View style={styles.headerContent}>
             <IconButton
-              icon="arrow-left"
+              icon="arrow-back"
               size={24}
-              onPress={() => router.back()}
+              onPress={handleBack}
               style={styles.backButton}
             />
             <Pressable 
               style={styles.headerInfo}
-              onPress={() => {
-                router.push({
-                  pathname: '/chat/gc/[id]',
-                  params: { id, view: 'info' }
-                });
-              }}
+              onPress={handleInfo}
             >
-              <View style={styles.headerInfo}>
-                <ThemedText style={styles.headerName}>
-                  {groupInfo?.name || 'Group Chat'}
-                </ThemedText>
-                <ThemedText style={styles.headerStatus}>
-                  {groupInfo?.members?.length || 0} members
-                </ThemedText>
-              </View>
+              <ThemedText style={styles.headerName}>
+                {groupInfo?.name || 'Group Chat'}
+              </ThemedText>
+              <ThemedText style={styles.headerStatus}>
+                {groupInfo?.members?.length || 0} members
+              </ThemedText>
             </Pressable>
             <IconButton
               icon="information"
               size={24}
-              onPress={() => {
-                router.push({
-                  pathname: '/chat/gc/[id]',
-                  params: { id, view: 'info' }
-                });
-              }}
+              onPress={handleInfo}
             />
           </View>
         </Surface>

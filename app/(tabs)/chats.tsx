@@ -169,108 +169,21 @@ export default function ChatsScreen() {
       }
     };
 
-    // Set up real-time subscriptions
-    const setupSubscriptions = async () => {
-      try {
-        const channel = supabase.channel('chat-changes')
-          // Listen for event participant changes (joining/leaving events)
-          .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'event_participants',
-            filter: `user_id=eq.${user.id}`
-          }, () => {
-            console.log('Event participation changed, fetching...');
-            fetchChats();
-          })
-          // Listen for group chat changes
-          .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'group_chats'
-          }, () => {
-            console.log('Group chat changed, fetching...');
-            fetchChats();
-          })
-          .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'group_members',
-            filter: `user_id=eq.${user.id}`
-          }, () => {
-            console.log('Group membership changed, fetching...');
-            fetchChats();
-          })
-          .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'group_messages'
-          }, () => {
-            console.log('New group message received, fetching...');
-            fetchChats();
-          })
-          // Listen for DM changes
-          .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'direct_messages',
-            filter: `or(user1_id.eq.${user.id},user2_id.eq.${user.id})`
-          }, () => {
-            console.log('DM chat changed, fetching...');
-            fetchChats();
-          })
-          .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'dm_messages'
-          }, () => {
-            console.log('New DM message received, fetching...');
-            fetchChats();
-          })
-          // Listen for database notifications
-          .on('presence', { event: 'sync' }, () => {
-            console.log('Realtime subscription synchronized');
-          })
-          .on('presence', { event: 'join' }, ({ key }) => {
-            console.log('Joined presence:', key);
-          })
-          .on('broadcast', { event: 'new_group_chat' }, (payload) => {
-            console.log('New group chat created:', payload);
-            fetchChats();
-          })
-          .on('broadcast', { event: 'group_member_added' }, (payload) => {
-            console.log('Added to group chat:', payload);
-            fetchChats();
-          });
-
-        const status = await channel.subscribe(async (status) => {
-          console.log('Subscription status:', status);
-          if (status === 'SUBSCRIBED') {
-            await fetchChats();
-          }
-        });
-
-        console.log('Subscription status:', status);
-        return channel;
-      } catch (error) {
-        console.error('Error setting up subscriptions:', error);
-        // Retry subscription setup after a delay
-        setTimeout(setupSubscriptions, 2000);
-      }
-    };
-
     // Initial fetch
     fetchChats();
 
-    // Set up subscriptions
-    let channel: RealtimeChannel;
-    setupSubscriptions().then(ch => {
-      channel = ch;
-    });
+    const channel = supabase.channel('chat-updates');
+    
+    // Store channel reference for cleanup
+    const subscription = channel
+      .on('broadcast', { event: 'message' }, payload => {
+        // Handle message updates
+      })
+      .subscribe();
 
     return () => {
-      if (channel) {
-        channel.unsubscribe();
+      if (subscription) {
+        supabase.removeChannel(subscription);
       }
     };
   }, [user]);
@@ -336,21 +249,21 @@ export default function ChatsScreen() {
               item.lastMessage || 'No messages yet'
             )
           }
-          left={() => (
+          left={props => 
             item.avatar ? (
               <Avatar.Image
-                size={50}
+                {...props}
                 source={{ uri: item.avatar }}
                 style={styles.avatar}
               />
             ) : (
-              <Avatar.Icon
-                size={50}
-                icon={item.type === 'gc' ? 'account-group' : 'account'}
-                style={[styles.avatar, { backgroundColor }]}
+              <Avatar.Text
+                {...props}
+                label={item.name.charAt(0).toUpperCase()}
+                style={[styles.avatar, { backgroundColor: '#007AFF' }]}
               />
             )
-          )}
+          }
           right={() => (
             <View style={styles.rightContent}>
               <ThemedText style={styles.timestamp}>{item.timestamp}</ThemedText>
