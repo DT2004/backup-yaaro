@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
-import { Avatar, Card, Button, Portal, Modal, TextInput } from 'react-native-paper';
+import { Avatar, Button, Portal, Modal, TextInput } from 'react-native-paper';
 import { supabase } from '@/lib/supabase';
 
 import { ThemedText } from '@/components/ThemedText';
@@ -185,7 +185,7 @@ export default function ProfileScreen() {
       .eq('question_id', questionId);
 
     if (!error) {
-      setOnboardingAnswers(prev => ({
+      setOnboardingAnswers((prev: Record<number, string | string[]>) => ({
         ...prev,
         [questionId]: value
       }));
@@ -276,77 +276,75 @@ export default function ProfileScreen() {
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
-      <Card style={styles.card}>
-        <View style={styles.cardContent}>
-          <View style={styles.coverImageContainer}>
-            <View style={styles.coverImage} />
-          </View>
-          <View style={styles.profileSection}>
-            <View style={styles.avatarContainer}>
-              <Avatar.Image
-                size={100}
-                source={profile.avatar_url ? { uri: profile.avatar_url } : undefined}
-                style={[
-                  !profile.avatar_url && styles.defaultAvatar,
-                  styles.avatarImage
-                ]}
-              />
-            </View>
-            <View style={styles.nameContainer}>
-              <ThemedText style={styles.name}>{profile.full_name || 'Anonymous'}</ThemedText>
-              <View style={styles.statsContainer}>
-                <View style={styles.statItem}>
-                  <ThemedText style={styles.statNumber}>{eventCount}</ThemedText>
-                  <ThemedText style={styles.statLabel}>Events</ThemedText>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <ThemedText style={styles.statNumber}>0</ThemedText>
-                  <ThemedText style={styles.statLabel}>Friends</ThemedText>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          <Card.Content style={styles.contentContainer}>
-            {profileSections.map((section) => (
-              <View key={section.title} style={styles.sectionContainer}>
-                <View style={styles.sectionHeader}>
-                  <ThemedText style={styles.sectionTitle}>
-                    {section.title.split('-')[1]}
-                  </ThemedText>
-                  {section.editable && (
-                    <Button
-                      mode="text"
-                      compact
-                      onPress={() => setEditingSection(section)}
-                    >
-                      Edit
-                    </Button>
-                  )}
-                </View>
-                <View style={styles.sectionContent}>
-                  {Array.isArray(section.value) ? (
-                    section.value.length > 0 ? (
-                      <View style={styles.tagsContainer}>
-                        {section.value.map((item, i) => (
-                          <View key={i} style={styles.tag}>
-                            <ThemedText style={styles.tagText}>{item}</ThemedText>
-                          </View>
-                        ))}
-                      </View>
-                    ) : (
-                      <ThemedText style={styles.sectionValue}>Not specified</ThemedText>
-                    )
-                  ) : (
-                    <ThemedText style={styles.sectionValue}>{section.value}</ThemedText>
-                  )}
-                </View>
-              </View>
-            ))}
-          </Card.Content>
+      <View style={styles.mainContent}>
+        <View style={styles.coverImageContainer}>
+          <View style={styles.coverImage} />
         </View>
-      </Card>
+        <View style={styles.profileSection}>
+          <View style={styles.avatarContainer}>
+            <Avatar.Image
+              size={100}
+              source={profile.avatar_url ? { uri: profile.avatar_url } : require('@/assets/images/default-avatar.png')}
+              style={[
+                !profile.avatar_url && styles.defaultAvatar,
+                styles.avatarImage
+              ]}
+            />
+          </View>
+          <View style={styles.nameContainer}>
+            <ThemedText style={styles.name}>{profile.full_name || 'Anonymous'}</ThemedText>
+            <View style={styles.statsContainer}>
+              <View style={styles.statItem}>
+                <ThemedText style={styles.statNumber}>{eventCount}</ThemedText>
+                <ThemedText style={styles.statLabel}>Events</ThemedText>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <ThemedText style={styles.statNumber}>0</ThemedText>
+                <ThemedText style={styles.statLabel}>Friends</ThemedText>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.contentContainer}>
+          {profileSections.map((section) => (
+            <View key={section.title} style={styles.sectionContainer}>
+              <View style={styles.sectionHeader}>
+                <ThemedText style={styles.sectionTitle}>
+                  {section.title.split('-')[1]}
+                </ThemedText>
+                {section.editable && (
+                  <Button
+                    mode="text"
+                    compact
+                    onPress={() => setEditingSection(section)}
+                  >
+                    Edit
+                  </Button>
+                )}
+              </View>
+              <View style={styles.sectionContent}>
+                {Array.isArray(section.value) ? (
+                  section.value.length > 0 ? (
+                    <View style={styles.tagsContainer}>
+                      {section.value.map((item, i) => (
+                        <View key={i} style={styles.tag}>
+                          <ThemedText style={styles.tagText}>{item}</ThemedText>
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <ThemedText style={styles.sectionValue}>Not specified</ThemedText>
+                  )
+                ) : (
+                  <ThemedText style={styles.sectionValue}>{section.value}</ThemedText>
+                )}
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
 
       {editingSection && (
         <EditModal
@@ -369,25 +367,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
     paddingBottom: 80,
+    paddingHorizontal: 16,
   },
-  card: {
+  mainContent: {
     marginTop: 90,
     marginBottom: 16,
-    borderRadius: 12,
-  },
-  cardContent: {
-    overflow: 'hidden',
   },
   coverImageContainer: {
-    width: '100%',
     height: 150,
+    marginHorizontal: -16,
+    overflow: 'hidden',
   },
   coverImage: {
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    height: 120,
+    height: 160,
     width: '100%',
     backgroundColor: Colors.primary,
   },
