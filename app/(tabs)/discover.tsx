@@ -167,40 +167,63 @@ export default function DiscoverScreen() {
         return;
       }
 
-      const { error: joinError } = await supabase
-        .from('event_participants')
-        .insert([{ event_id: event.id, user_id: user.id }]);
+      Alert.alert(
+        'Join Event',
+        `Would you like to join "${event.title}"?\n\nDetails:\n📍 ${event.location}\n📅 ${formatDate(event.event_date)}\n👥 ${event.current_participants}/${event.max_participants} participants`,
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          },
+          {
+            text: 'Join',
+            style: 'default',
+            onPress: async () => {
+              setLoading(true);
+              try {
+                const { error: joinError } = await supabase
+                  .from('event_participants')
+                  .insert([{ event_id: event.id, user_id: user.id }]);
 
-      if (joinError) {
-        console.error('Error joining event:', joinError);
-        Alert.alert('Error', 'Failed to join event. Please try again.');
-        return;
-      }
+                if (joinError) {
+                  console.error('Error joining event:', joinError);
+                  Alert.alert('Error', 'Failed to join event. Please try again.');
+                  return;
+                }
 
-      // Update local state immediately
-      setJoinedEvents(prev => [...prev, event.id]);
-      setEvents(prev => prev.map(e => 
-        e.id === event.id 
-          ? { ...e, current_participants: (e.current_participants || 0) + 1 }
-          : e
-      ));
+                setJoinedEvents(prev => [...prev, event.id]);
+                setEvents(prev => prev.map(e => 
+                  e.id === event.id 
+                    ? { ...e, current_participants: (e.current_participants || 0) + 1 }
+                    : e
+                ));
 
-      // Wait briefly for the trigger to create the group chat
-      await new Promise(resolve => setTimeout(resolve, 1000));
+                // Wait briefly for the trigger to create the group chat
+                await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Get the group chat ID
-      const { data: groupChat } = await supabase
-        .from('group_chats')
-        .select('id')
-        .eq('event_id', event.id)
-        .single();
+                // Get the group chat ID
+                const { data: groupChat } = await supabase
+                  .from('group_chats')
+                  .select('id')
+                  .eq('event_id', event.id)
+                  .single();
 
-      if (groupChat) {
-        router.push({
-          pathname: '/chat/gc/[id]',
-          params: { id: groupChat.id }
-        });
-      }
+                if (groupChat) {
+                  router.push({
+                    pathname: '/chat/gc/[id]',
+                    params: { id: groupChat.id }
+                  });
+                }
+              } catch (error) {
+                console.error('Error in handleJoinEvent:', error);
+                Alert.alert('Error', 'An unexpected error occurred');
+              } finally {
+                setLoading(false);
+              }
+            }
+          }
+        ]
+      );
     } catch (error) {
       console.error('Error in handleJoinEvent:', error);
       Alert.alert('Error', 'An unexpected error occurred');
@@ -227,8 +250,8 @@ export default function DiscoverScreen() {
         <View style={styles.eventHeader}>
           <Text style={styles.eventTitle}>{item.title}</Text>
           <View style={styles.participantCount}>
-            <Ionicons name="people" size={16} color="#007AFF" />
-            <Text style={styles.participantText}>
+            <Ionicons name="people" size={16} color="#9C27B0" />
+            <Text style={[styles.participantText, { color: '#9C27B0' }]}>
               {item.current_participants || 0}/{item.max_participants}
             </Text>
           </View>
@@ -238,11 +261,11 @@ export default function DiscoverScreen() {
 
         <View style={styles.eventDetails}>
           <View style={styles.detailItem}>
-            <Ionicons name="location" size={16} color="#007AFF" />
+            <Ionicons name="location" size={16} color="#9C27B0" />
             <Text style={styles.detailText}>{item.location}</Text>
           </View>
           <View style={styles.detailItem}>
-            <Ionicons name="calendar" size={16} color="#007AFF" />
+            <Ionicons name="calendar" size={16} color="#9C27B0" />
             <Text style={styles.detailText}>{formatDate(item.event_date)}</Text>
           </View>
         </View>
@@ -276,7 +299,7 @@ export default function DiscoverScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color="#9C27B0" />
       </View>
     );
   }
@@ -317,7 +340,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   header: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#9C27B0',
     padding: 16,
     paddingTop: 130,
   },
@@ -345,13 +368,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   activeTabText: {
-    color: Colors.primary,
+    color: '#9C27B0',
   },
   list: {
     padding: 16,
   },
   eventCard: {
-    backgroundColor: 'white',
+    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -382,7 +405,7 @@ const styles = StyleSheet.create({
   },
   participantText: {
     marginLeft: 4,
-    color: '#007AFF',
+    color: '#9C27B0',
   },
   eventDescription: {
     fontSize: 14,
@@ -416,10 +439,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   joinButton: {
-    backgroundColor: '#7C4DFF',
+    backgroundColor: '#9C27B0',
   },
   leaveButton: {
-    backgroundColor: '#7C4DFF',
+    backgroundColor: '#9C27B0',
     opacity: 0.8,
   },
   disabledButton: {
@@ -434,5 +457,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  arrowContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F8E7FF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
