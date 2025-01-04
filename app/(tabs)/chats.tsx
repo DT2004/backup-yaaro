@@ -19,6 +19,9 @@ interface ChatListItem {
   avatar?: string;
   unread?: number;
   participants?: number;
+  eventTitle?: string;
+  eventDate?: string;
+  location?: string;
 }
 
 export default function ChatsScreen() {
@@ -33,89 +36,242 @@ export default function ChatsScreen() {
     
     const fetchChats = async () => {
       try {
-        // Fetch DMs
-        const { data: directMessages, error: dmError } = await supabase
-          .from('direct_messages')
-          .select('*, user1:user1_id(full_name, avatar_url), user2:user2_id(full_name, avatar_url), dm_messages!inner(message, created_at)')
-          .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
-          .order('created_at', { foreignTable: 'dm_messages', ascending: false })
-          .limit(1, { foreignTable: 'dm_messages' });
+        console.log('Fetching chats for user:', user.id);
 
-        if (dmError) throw dmError;
+        // First, let's check what events the user has joined
+        const { data: joinedEvents, error: eventError } = await supabase
+          .from('event_participants')
+          .select('event_id, events!inner(*)')
+          .eq('user_id', user.id);
 
-        // Fetch Group Chats
-        const { data: groupChats, error: gcError } = await supabase
-          .from('group_chats')
-          .select(`
-            *,
-            group_members!inner(user_id),
-            group_messages(message, created_at, sender:sender_id(full_name))
-          `)
-          .eq('group_members.user_id', user.id)
-          .order('created_at', { foreignTable: 'group_messages', ascending: false })
-          .limit(1, { foreignTable: 'group_messages' });
+        console.log('Joined events:', joinedEvents);
 
-        if (gcError) throw gcError;
+        if (eventError) {
+          console.error('Error fetching joined events:', eventError);
+          throw eventError;
+        }
 
-        // Transform data into ChatListItem format
-        const dmItems: ChatListItem[] = directMessages.map(dm => ({
-          id: dm.id,
-          type: 'dm',
-          name: user.id === dm.user1_id ? dm.user2.full_name : dm.user1.full_name,
-          avatar: user.id === dm.user1_id ? dm.user2.avatar_url : dm.user1.avatar_url,
-          lastMessage: dm.dm_messages[0]?.message,
-          timestamp: formatTimestamp(dm.dm_messages[0]?.created_at),
+        // Check for group chats for these events
+        const eventIds = joinedEvents?.map(je => je.event_id) || [];
+        console.log('Checking group chats for events:', eventIds);
+
+        // Fetch both DMs and group chats in parallel
+        const [groupChatsResult, dmChatsResult] = await Promise.all([
+          // Fetch group chats
+          supabase
+            .from('group_chats')
+            .select(`
+              *,
+              events!left(*),
+              group_members!inner(user_id),
+              group_messages(
+                message,
+                created_at,
+                sender:sender_id(full_name)
+              )
+            `)
+            .eq('group_members.user_id', user.id)
+            .order('created_at', { ascending: false }),
+
+          // Fetch DMs using the correct table names
+          supabase
+            .from('direct_messages')
+            .select(`
+              *,
+              dm_messages(
+                message,
+                created_at,
+                sender:profiles!sender_id(full_name)
+              ),
+              user1:profiles!direct_messages_user1_id_fkey(
+                id,
+                full_name,
+                avatar_url
+              ),
+              user2:profiles!direct_messages_user2_id_fkey(
+                id,
+                full_name,
+                avatar_url
+              )
+            `)
+            .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+            .order('created_at', { ascending: false })
+        ]);
+
+        const { data: groupChats, error: gcError } = groupChatsResult;
+        const { data: dmChats, error: dmError } = dmChatsResult;
+
+        if (gcError) {
+          console.error('Error fetching group chats:', gcError);
+          throw gcError;
+        }
+
+        if (dmError) {
+          console.error('Error fetching DMs:', dmError);
+          throw dmError;
+        }
+
+        console.log('Group chats found:', groupChats);
+        console.log('DM chats found:', dmChats);
+
+        // Check for missing group chats
+        const groupChatEventIds = new Set(groupChats?.map(gc => gc.event_id) || []);
+        const missingEventIds = eventIds.filter(id => !groupChatEventIds.has(id));
+        if (missingEventIds.length > 0) {
+          console.log('Missing group chats for events:', missingEventIds);
+          // Retry after a delay if there are missing chats
+          setTimeout(fetchChats, 1000);
+        }
+
+        // Transform group chats into ChatListItem format
+        const gcItems: ChatListItem[] = (groupChats || []).map(gc => {
+          console.log('Processing group chat:', gc);
+          return {
+            id: gc.id,
+            type: 'gc',
+            name: gc.events?.title || gc.name || 'Unnamed Event',
+            lastMessage: gc.group_messages?.[0]?.message || 'No messages yet',
+            timestamp: formatTimestamp(gc.group_messages?.[0]?.created_at || gc.created_at),
+            participants: gc.group_members?.length || 0,
+            eventTitle: gc.events?.title,
+            eventDate: gc.events?.event_date ? formatTimestamp(gc.events.event_date) : undefined,
+            location: gc.events?.location
+          };
+        });
+
+        // Transform DMs into ChatListItem format
+        const dmItems: ChatListItem[] = (dmChats || []).map(dm => {
+          const otherUser = dm.user1_id === user.id ? dm.user2 : dm.user1;
+          return {
+            id: dm.id,
+            type: 'dm',
+            name: otherUser?.full_name || 'Unknown User',
+            lastMessage: dm.dm_messages?.[0]?.message || 'No messages yet',
+            timestamp: formatTimestamp(dm.dm_messages?.[0]?.created_at || dm.created_at),
+            avatar: otherUser?.avatar_url
+          };
+        });
+
+        console.log('Transformed group chat items:', gcItems);
+        console.log('Transformed DM items:', dmItems);
+
+        // Combine and sort all chats by timestamp
+        setChats([...gcItems, ...dmItems].sort((a, b) => {
+          const timeA = new Date(a.timestamp || 0).getTime();
+          const timeB = new Date(b.timestamp || 0).getTime();
+          return timeB - timeA;
         }));
-
-        const gcItems: ChatListItem[] = groupChats.map(gc => ({
-          id: gc.id,
-          type: 'gc',
-          name: gc.name || 'Unnamed Group',
-          lastMessage: gc.group_messages?.[0]?.message || 'No messages yet',
-          timestamp: formatTimestamp(gc.group_messages?.[0]?.created_at || gc.created_at),
-          participants: gc.group_members.length,
-        }));
-
-        // Combine and sort by latest message
-        setChats([...dmItems, ...gcItems].sort((a, b) => {
-          if (!a.timestamp || !b.timestamp) return 0;
-          return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-        }));
+        
       } catch (error) {
-        console.error('Error fetching chats:', error);
+        console.error('Error in fetchChats:', error);
       } finally {
         setLoading(false);
       }
     };
 
+    // Set up real-time subscriptions
+    const setupSubscriptions = async () => {
+      try {
+        const channel = supabase.channel('chat-changes')
+          // Listen for event participant changes (joining/leaving events)
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'event_participants',
+            filter: `user_id=eq.${user.id}`
+          }, () => {
+            console.log('Event participation changed, fetching...');
+            fetchChats();
+          })
+          // Listen for group chat changes
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'group_chats'
+          }, () => {
+            console.log('Group chat changed, fetching...');
+            fetchChats();
+          })
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'group_members',
+            filter: `user_id=eq.${user.id}`
+          }, () => {
+            console.log('Group membership changed, fetching...');
+            fetchChats();
+          })
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'group_messages'
+          }, () => {
+            console.log('New group message received, fetching...');
+            fetchChats();
+          })
+          // Listen for DM changes
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'direct_messages',
+            filter: `or(user1_id.eq.${user.id},user2_id.eq.${user.id})`
+          }, () => {
+            console.log('DM chat changed, fetching...');
+            fetchChats();
+          })
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'dm_messages'
+          }, () => {
+            console.log('New DM message received, fetching...');
+            fetchChats();
+          })
+          // Listen for database notifications
+          .on('presence', { event: 'sync' }, () => {
+            console.log('Realtime subscription synchronized');
+          })
+          .on('presence', { event: 'join' }, ({ key }) => {
+            console.log('Joined presence:', key);
+          })
+          .on('broadcast', { event: 'new_group_chat' }, (payload) => {
+            console.log('New group chat created:', payload);
+            fetchChats();
+          })
+          .on('broadcast', { event: 'group_member_added' }, (payload) => {
+            console.log('Added to group chat:', payload);
+            fetchChats();
+          });
+
+        const status = await channel.subscribe(async (status) => {
+          console.log('Subscription status:', status);
+          if (status === 'SUBSCRIBED') {
+            await fetchChats();
+          }
+        });
+
+        console.log('Subscription status:', status);
+        return channel;
+      } catch (error) {
+        console.error('Error setting up subscriptions:', error);
+        // Retry subscription setup after a delay
+        setTimeout(setupSubscriptions, 2000);
+      }
+    };
+
+    // Initial fetch
     fetchChats();
 
-    // Set up real-time subscriptions
-    const dmSubscription = supabase
-      .channel('dm-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'dm_messages'
-      }, () => {
-        fetchChats();
-      })
-      .subscribe();
-
-    const gcSubscription = supabase
-      .channel('gc-changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'group_messages'
-      }, () => {
-        fetchChats();
-      })
-      .subscribe();
+    // Set up subscriptions
+    let channel: RealtimeChannel;
+    setupSubscriptions().then(ch => {
+      channel = ch;
+    });
 
     return () => {
-      dmSubscription.unsubscribe();
-      gcSubscription.unsubscribe();
+      if (channel) {
+        channel.unsubscribe();
+      }
     };
   }, [user]);
 
@@ -158,45 +314,63 @@ export default function ChatsScreen() {
     ), [chats, searchQuery]
   );
 
-  const renderChatItem = ({ item }: { item: ChatListItem }) => (
-    <Pressable onPress={() => handleChatPress(item)}>
-      <List.Item
-        title={item.name}
-        description={item.lastMessage || 'No messages yet'}
-        left={() => (
-          item.avatar ? (
-            <Avatar.Image
-              size={50}
-              source={{ uri: item.avatar }}
-              style={styles.avatar}
-            />
-          ) : (
-            <Avatar.Icon
-              size={50}
-              icon="account"
-              style={[styles.avatar, { backgroundColor: 'white' }]}
-            />
-          )
-        )}
-        right={() => (
-          <View style={styles.rightContent}>
-            <ThemedText style={styles.timestamp}>{item.timestamp}</ThemedText>
-            {item.unread && (
-              <View style={styles.unreadBadge}>
-                <ThemedText style={styles.unreadText}>{item.unread}</ThemedText>
+  const renderChatItem = ({ item }: { item: ChatListItem }) => {
+    // Get the background color based on color scheme
+    const backgroundColor = Colors[colorScheme ?? 'light'].tint;
+    
+    return (
+      <Pressable onPress={() => handleChatPress(item)}>
+        <List.Item
+          title={item.name}
+          description={
+            item.type === 'gc' ? (
+              <View>
+                <ThemedText style={styles.eventInfo}>
+                  {item.location} • {item.eventDate}
+                </ThemedText>
+                <ThemedText style={styles.lastMessage}>
+                  {item.lastMessage || 'No messages yet'}
+                </ThemedText>
               </View>
-            )}
-            {item.type === 'gc' && (
-              <ThemedText style={styles.participantsText}>
-                {item.participants} members
-              </ThemedText>
-            )}
-          </View>
-        )}
-        style={styles.chatItem}
-      />
-    </Pressable>
-  );
+            ) : (
+              item.lastMessage || 'No messages yet'
+            )
+          }
+          left={() => (
+            item.avatar ? (
+              <Avatar.Image
+                size={50}
+                source={{ uri: item.avatar }}
+                style={styles.avatar}
+              />
+            ) : (
+              <Avatar.Icon
+                size={50}
+                icon={item.type === 'gc' ? 'account-group' : 'account'}
+                style={[styles.avatar, { backgroundColor }]}
+              />
+            )
+          )}
+          right={() => (
+            <View style={styles.rightContent}>
+              <ThemedText style={styles.timestamp}>{item.timestamp}</ThemedText>
+              {item.unread && (
+                <View style={styles.unreadBadge}>
+                  <ThemedText style={styles.unreadText}>{item.unread}</ThemedText>
+                </View>
+              )}
+              {item.type === 'gc' && (
+                <ThemedText style={styles.participantsText}>
+                  {item.participants} members
+                </ThemedText>
+              )}
+            </View>
+          )}
+        />
+        <Divider />
+      </Pressable>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -267,5 +441,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     opacity: 0.6,
     marginTop: 4,
+  },
+  eventInfo: {
+    fontSize: 12,
+    color: Colors.light.tint,
+    marginBottom: 4,
+  },
+  lastMessage: {
+    fontSize: 14,
+    color: Colors.light.text,
+    opacity: 0.7,
   },
 });

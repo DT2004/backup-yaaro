@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -72,6 +73,7 @@ export default function DiscoverScreen() {
     if (joinedEvents.includes(eventId)) return;
     try {
       const { data: { user } } = await supabase.auth.getUser();
+
       if (!user) throw new Error('Not authenticated');
 
       const { error } = await supabase
@@ -87,20 +89,69 @@ export default function DiscoverScreen() {
     }
   };
 
+  const handleLeaveEvent = async (event: Event) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      Alert.alert(
+        'Leave Event',
+        `Are you sure you want to leave "${event.title}"?\n\n` +
+        'You will be removed from the group chat.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          },
+          {
+            text: 'Leave',
+            style: 'destructive',
+            onPress: async () => {
+              setLoading(true);
+
+              // Start a transaction to leave event and remove from group chat
+              const { error } = await supabase.rpc('leave_event', {
+                p_event_id: event.id,
+                p_user_id: user.id
+              });
+
+              if (error) {
+                console.error('Error leaving event:', error);
+                Alert.alert('Error', 'Failed to leave event. Please try again.');
+                return;
+              }
+
+              setLoading(false);
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error in handleLeaveEvent:', error);
+      Alert.alert('Error', 'An unexpected error occurred');
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  };
+
   const EventCard = ({ event }: { event: Event }) => {
     const isJoined = joinedEvents.includes(event.id);
-    
+
     return (
       <View style={styles.card}>
         <View style={styles.cardContent}>
           <Text style={styles.title}>{event.title}</Text>
           <Text style={styles.dateTime}>
-            {new Date(event.event_date).toLocaleString('en-US', {
-              hour: 'numeric',
-              minute: 'numeric',
-              month: 'short',
-              day: 'numeric',
-            })}
+            {formatDate(event.event_date)}
           </Text>
           <Text style={styles.location}>{event.location}</Text>
 
@@ -112,18 +163,20 @@ export default function DiscoverScreen() {
               </Text>
             </View>
 
-            {isJoined ? (
-              <View style={[styles.joinButton, styles.joinedButton]}>
-                <Ionicons name="checkmark" size={24} color="#fff" />
-              </View>
-            ) : (
-              <TouchableOpacity
-                style={styles.joinButton}
-                onPress={() => handleJoinEvent(event.id)}
-              >
-                <Text style={styles.joinButtonText}>JOIN</Text>
-              </TouchableOpacity>
-            )}
+            <View style={styles.joinButtonContainer}>
+              {isJoined ? (
+                <View style={[styles.joinButton, styles.joinedButton]}>
+                  <Ionicons name="checkmark" size={24} color="#fff" />
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.joinButton}
+                  onPress={() => handleJoinEvent(event.id)}
+                >
+                  <Text style={styles.joinButtonText}>JOIN</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
       </View>
@@ -252,6 +305,10 @@ const styles = StyleSheet.create({
   participantsText: {
     fontSize: 14,
     color: '#666',
+  },
+  joinButtonContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   joinButton: {
     backgroundColor: Colors.primary,
