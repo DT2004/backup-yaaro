@@ -254,10 +254,7 @@ export default function GroupChatScreen() {
             </ThemedText>
           </View>
         )}
-        <View style={[
-          styles.messageContainer,
-          isOwnMessage ? styles.ownMessage : styles.otherMessage
-        ]}>
+        <View style={[styles.messageContainer, isOwnMessage ? styles.ownMessage : styles.otherMessage]}>
           {showAvatar ? (
             item.sender?.avatar_url ? (
               <Avatar.Image
@@ -275,29 +272,17 @@ export default function GroupChatScreen() {
           ) : (
             <View style={styles.avatarPlaceholder} />
           )}
-          <View style={[
-            styles.messageContainer,
-            isOwnMessage ? styles.ownMessage : styles.otherMessage
-          ]}>
-            <View style={[
-              styles.messageBubble,
-              isOwnMessage ? [styles.ownBubble, themedStyles.ownMessageBubble] : [styles.otherBubble, themedStyles.otherMessageBubble]
-            ]}>
+          <View style={[styles.messageContainer, isOwnMessage ? styles.ownMessage : styles.otherMessage]}>
+            <View style={[styles.messageBubble, isOwnMessage ? [styles.ownBubble, themedStyles.ownMessageBubble] : [styles.otherBubble, themedStyles.otherMessageBubble]]}>
               {!isOwnMessage && (
                 <ThemedText style={{ fontSize: 12, marginBottom: 2, opacity: 0.7 }}>
                   {item.sender.full_name}
                 </ThemedText>
               )}
-              <ThemedText style={[
-                styles.messageText,
-                isOwnMessage && themedStyles.ownMessageText
-              ]}>
+              <ThemedText style={[styles.messageText, isOwnMessage && themedStyles.ownMessageText]}>
                 {item.message}
               </ThemedText>
-              <ThemedText style={[
-                styles.timestamp,
-                isOwnMessage && themedStyles.ownTimestamp
-              ]}>
+              <ThemedText style={[styles.timestamp, isOwnMessage && themedStyles.ownTimestamp]}>
                 {new Date(item.created_at).toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit'
@@ -335,7 +320,7 @@ export default function GroupChatScreen() {
         <Surface style={[styles.header, { backgroundColor: theme.background }]}>
           <View style={styles.headerContent}>
             <IconButton
-              icon="arrow-back"
+              icon="arrow-left"
               size={24}
               onPress={handleBack}
               style={styles.backButton}
@@ -344,12 +329,14 @@ export default function GroupChatScreen() {
               style={styles.headerInfo}
               onPress={handleInfo}
             >
-              <ThemedText style={styles.headerName}>
-                {groupInfo?.name || 'Group Chat'}
-              </ThemedText>
-              <ThemedText style={styles.headerStatus}>
-                {groupInfo?.members?.length || 0} members
-              </ThemedText>
+              <View>
+                <ThemedText style={styles.headerName}>
+                  {groupInfo?.name || 'Group Chat'}
+                </ThemedText>
+                <ThemedText style={styles.headerStatus}>
+                  {groupInfo?.members?.length || 0} members
+                </ThemedText>
+              </View>
             </Pressable>
             <IconButton
               icon="information"
@@ -544,17 +531,15 @@ const styles = StyleSheet.create({
   },
   headerInfo: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   headerName: {
     fontSize: 18,
     fontWeight: '600',
-    marginRight: 8,
   },
   headerStatus: {
     fontSize: 14,
     opacity: 0.7,
+    marginTop: 2,
   },
   infoContainer: {
     flex: 1,
